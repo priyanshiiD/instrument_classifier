@@ -64,6 +64,7 @@ If `streamlit` command is not recognized, always run it as a Python module:
 - File type: WAV only
 - Recommended: clear single-instrument recordings
 - The app analyzes up to the first 3 seconds of audio
+- Optional sample demo files can be added to `samples/` and selected directly in the app
 
 ## Model Limitations
 

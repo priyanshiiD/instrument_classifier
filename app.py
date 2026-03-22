@@ -2,6 +2,7 @@
 import librosa
 import numpy as np
 import joblib
+from pathlib import Path
 
 # Page config
 st.set_page_config(page_title="Instrument Classifier", page_icon="🎵", layout="wide")
@@ -31,6 +32,8 @@ instrument_colors = {
     "🎷 Clarinet": "#FFEAA7"
 }
 
+SAMPLE_DIR = Path("samples")
+
 def extract_features(signal, sr, n_mfcc=20):
     mfcc = librosa.feature.mfcc(y=signal, sr=sr, n_mfcc=n_mfcc)
     features = np.mean(mfcc.T, axis=0)
@@ -38,6 +41,8 @@ def extract_features(signal, sr, n_mfcc=20):
 
 def predict_instrument(audio_file):
     try:
+        if hasattr(audio_file, "seek"):
+            audio_file.seek(0)
         signal, sr = librosa.load(audio_file, sr=16000)
         segment = signal[:3*sr]
         features = extract_features(segment, sr)
@@ -53,6 +58,63 @@ def predict_instrument(audio_file):
         return instrument_name, confidence
     except Exception as e:
         return None, str(e)
+
+
+def get_sample_files():
+    if not SAMPLE_DIR.exists():
+        return []
+    return sorted(SAMPLE_DIR.glob("*.wav"))
+
+
+def render_result(audio_source, display_name, size_kb):
+    st.divider()
+
+    col_audio, col_info = st.columns([2, 1])
+
+    with col_audio:
+        st.subheader("🔊 Audio Preview")
+        st.audio(audio_source)
+
+    with col_info:
+        st.subheader("📁 File Info")
+        st.write(f"**Name:** {display_name}")
+        st.write(f"**Size:** {size_kb:.2f} KB")
+
+    st.divider()
+    st.subheader("🎙️ Classification Result")
+
+    with st.spinner("🔍 Analyzing audio..."):
+        instrument_name, result = predict_instrument(audio_source)
+
+    if instrument_name:
+        color = instrument_colors.get(instrument_name, "#00D9FF")
+        confidence = result
+
+        col_result, col_confidence = st.columns(2)
+
+        with col_result:
+            st.markdown(
+                f"""
+                <div style='background-color: {color}; padding: 20px; border-radius: 10px; text-align: center;'>
+                    <h2 style='color: white; margin: 0;'>{instrument_name}</h2>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+        with col_confidence:
+            st.markdown(
+                f"""
+                <div style='background-color: #2D3436; padding: 20px; border-radius: 10px; text-align: center; border: 2px solid {color};'>
+                    <p style='color: gray; margin: 0; font-size: 14px;'>Confidence Score</p>
+                    <h2 style='color: {color}; margin: 0;'>{confidence:.1f}%</h2>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+    else:
+        st.error(f"❌ Error analyzing file: {result}")
+        st.info("Make sure the file is a valid WAV audio file.")
 
 # Sidebar
 with st.sidebar:
@@ -106,63 +168,28 @@ with col1:
     st.subheader("📤 Upload Audio File")
     uploaded_file = st.file_uploader("Choose a WAV file", type=["wav"], label_visibility="collapsed")
 
+    st.subheader("🎧 Or Try Sample Audio")
+    sample_files = get_sample_files()
+    sample_options = ["None"] + [sample_file.stem.replace("_", " ").title() for sample_file in sample_files]
+    selected_sample_name = st.selectbox("Choose a sample", sample_options, label_visibility="collapsed")
+    selected_sample_path = None
+    if selected_sample_name != "None":
+        for sample_file in sample_files:
+            if sample_file.stem.replace("_", " ").title() == selected_sample_name:
+                selected_sample_path = sample_file
+                break
+    if not sample_files:
+        st.caption("No sample files found. Add WAV files to the samples/ folder.")
+
 with col2:
     st.subheader("📊 Stats")
     st.metric("Supported Formats", "WAV")
     st.metric("Audio Length (max)", "3 seconds")
+    st.metric("Sample Files", str(len(sample_files)))
 
 if uploaded_file is not None:
-    st.divider()
-    
-    # Audio preview
-    col_audio, col_info = st.columns([2, 1])
-    
-    with col_audio:
-        st.subheader("🔊 Audio Preview")
-        st.audio(uploaded_file)
-    
-    with col_info:
-        st.subheader("📁 File Info")
-        st.write(f"**Name:** {uploaded_file.name}")
-        st.write(f"**Size:** {uploaded_file.size / 1024:.2f} KB")
-    
-    st.divider()
-    
-    # Prediction
-    st.subheader("🎙️ Classification Result")
-    
-    with st.spinner("🔍 Analyzing audio..."):
-        instrument_name, result = predict_instrument(uploaded_file)
-    
-    if instrument_name:
-        # Display result with styling
-        color = instrument_colors.get(instrument_name, "#00D9FF")
-        confidence = result
-        
-        col_result, col_confidence = st.columns(2)
-        
-        with col_result:
-            st.markdown(
-                f"""
-                <div style='background-color: {color}; padding: 20px; border-radius: 10px; text-align: center;'>
-                    <h2 style='color: white; margin: 0;'>{instrument_name}</h2>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-        
-        with col_confidence:
-            st.markdown(
-                f"""
-                <div style='background-color: #2D3436; padding: 20px; border-radius: 10px; text-align: center; border: 2px solid {color};'>
-                    <p style='color: gray; margin: 0; font-size: 14px;'>Confidence Score</p>
-                    <h2 style='color: {color}; margin: 0;'>{confidence:.1f}%</h2>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-    else:
-        st.error(f"❌ Error analyzing file: {result}")
-        st.info("Make sure the file is a valid WAV audio file.")
+    render_result(uploaded_file, uploaded_file.name, uploaded_file.size / 1024)
+elif selected_sample_path is not None:
+    render_result(str(selected_sample_path), selected_sample_path.name, selected_sample_path.stat().st_size / 1024)
 else:
-    st.info("👆 Upload an audio file to get started!")
+    st.info("👆 Upload a file or choose a sample audio to get started!")
