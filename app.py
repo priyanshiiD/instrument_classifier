@@ -33,7 +33,7 @@ instrument_colors = {
 }
 
 SAMPLE_DIR = Path("samples")
-DATASET_URL = "https://www.kaggle.com/datasets/imsparsh/musicnet-dataset/data?select=musicnet"
+DATASET_URL = "https://www.kaggle.com/datasets/imsparsh/musicnet-dataset"
 
 def extract_features(signal, sr, n_mfcc=20):
     mfcc = librosa.feature.mfcc(y=signal, sr=sr, n_mfcc=n_mfcc)
