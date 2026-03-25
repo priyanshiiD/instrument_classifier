@@ -33,6 +33,7 @@ instrument_colors = {
 }
 
 SAMPLE_DIR = Path("samples")
+DATASET_URL = "https://www.kaggle.com/datasets/imsparsh/musicnet-dataset/data?select=musicnet"
 
 def extract_features(signal, sr, n_mfcc=20):
     mfcc = librosa.feature.mfcc(y=signal, sr=sr, n_mfcc=n_mfcc)
@@ -144,6 +145,13 @@ with st.sidebar:
         """
     )
 
+    st.divider()
+    st.markdown("### 🔗 Dataset")
+    if DATASET_URL:
+        st.markdown(f"[Open Dataset Source]({DATASET_URL})")
+    else:
+        st.caption("Set DATASET_URL in app.py to show the dataset link here.")
+
 # Main title
 st.markdown(
     """
@@ -158,6 +166,9 @@ st.markdown(
     "<p style='text-align: center; color: gray;'>Identify musical instruments from audio files</p>",
     unsafe_allow_html=True
 )
+
+if DATASET_URL:
+    st.caption(f"Dataset Source: {DATASET_URL}")
 
 st.divider()
 
